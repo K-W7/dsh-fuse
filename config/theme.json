@@ -1,32 +1,5 @@
 {
   "$comment": "Fuse 设计令牌 —— 配色刻意避开「AI 蓝紫/青紫渐变」：default = 松绿 + 陶土 + 纸白；apple = 中性灰 + 墨绿；dark = 暖石墨 + 鼠尾草绿 + 琥珀。配色 ≤3 色 + 中性色，间距 4/8 栅格，字号阶梯 12/14/16/20/28/36/48。",
-  "brand": {
-    "$comment": "插件品牌色（功能语义，单一事实来源）：fuse=松绿（UI 设计/渲染）、biomemory=紫粉（记忆/神经）、packer=橙琥珀（打包/迁移）；主/辅/点缀三层，浅深两套。",
-    "fuse": {
-      "primary": "#2F5D50",
-      "darkPrimary": "#8FBFA6",
-      "secondary": "#6E8B7B",
-      "darkSecondary": "#A9C9B6",
-      "accent": "#C8763F",
-      "darkAccent": "#E0A66B"
-    },
-    "biomemory": {
-      "primary": "#7C3AED",
-      "darkPrimary": "#A78BFA",
-      "secondary": "#C026D3",
-      "darkSecondary": "#F0ABFC",
-      "accent": "#049BDF",
-      "darkAccent": "#22D3EE"
-    },
-    "packer": {
-      "primary": "#EA580C",
-      "darkPrimary": "#FB923C",
-      "secondary": "#D37C00",
-      "darkSecondary": "#FBBF24",
-      "accent": "#049BDF",
-      "darkAccent": "#22D3EE"
-    }
-  },
   "themes": {
     "default": {
       "$comment": "现代极简 · 松绿纸调（暖白底 + 松绿主色 + 陶土点缀）",

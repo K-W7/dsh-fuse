@@ -7,7 +7,7 @@
 //   ③ 令牌对比度：theme.json 两套主题正文 WCAG ≥ 4.5
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { JSDOM } from 'jsdom'
+import { JSDOM, VirtualConsole } from 'jsdom'
 
 import {
   FUSE_PAGE_KINDS,
@@ -23,19 +23,45 @@ const clientSrc = fs.readFileSync(new URL('../lib/client.js', import.meta.url), 
 const themeConfig = JSON.parse(fs.readFileSync(new URL('../config/theme.json', import.meta.url), 'utf8'))
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const block = (body) => `<div class="md-code-block" data-lang="dsh-fuse"><div class="md-code-block__header">dsh-fuse</div><pre>${body}</pre></div>`
+const block = (body, lang = 'dsh-fuse') => `<div class="md-code-block" data-lang="${lang}"><div class="md-code-block__header">${lang}</div><pre>${body}</pre></div>`
+
+// 导航在 jsdom 里未实现：导出用例里 a.click() 触发下载会被 jsdom 报 "Not implemented: navigation"。
+// 真实浏览器里这是正常下载行为，与本仓库的渲染逻辑无关，故在此屏蔽该噪声（真实错误仍透出）。
+const silentNav = new VirtualConsole()
+silentNav.on('jsdomError', (e) => {
+  if (e && /navigation \(except hash changes\)/.test(String(e.message))) return
+  console.error(e)
+})
 
 function boot(html) {
-  const dom = new JSDOM(`<!doctype html><html><body><div class="conversation">${html}</div></body></html>`, { runScripts: 'outside-only' })
+  const dom = new JSDOM(`<!doctype html><html><body><div class="conversation">${html}</div></body></html>`, { runScripts: 'outside-only', virtualConsole: silentNav })
   const { window } = dom
   window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} })
-  window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ themes: themeConfig.themes }) })
+  let fetchCount = 0
+  window.fetch = () => { fetchCount++; return Promise.resolve({ ok: true, json: () => Promise.resolve({ themes: themeConfig.themes }) }) }
+  // jsdom 的 Blob 读不回文本，用替身记录构造入参，以便断言导出的 HTML
+  let exported = null
+  window.Blob = class { constructor(parts) { exported = String(parts[0]) } }
+  window.URL.createObjectURL = () => 'blob:fuse-test'
+  window.URL.revokeObjectURL = () => {}
   let plugin = null
   window.__ModuleLoader__ = { load: ({ factory }) => { plugin = factory(() => ({})) } }
   window.eval(clientSrc)
   const dispose = plugin.apply({ sessions: { current: () => null }, effect: (fn) => fn() })
-  return { document: window.document, close: () => { dispose?.(); window.close() } }
+  return {
+    document: window.document,
+    close: () => { dispose?.(); window.close() },
+    fetchCount: () => fetchCount,
+    exportedHtml: () => exported,
+  }
 }
+
+/** DOM 结构指纹：tag + class + 文本，忽略随机的 id / aria-* 引用 */
+const shape = (root) => Array.from(root.querySelectorAll('*'))
+  .map((n) => `${n.tagName.toLowerCase()}${n.className ? '.' + String(n.className).trim().split(/\s+/).join('.') : ''}=${(n.textContent || '').trim()}`)
+  .join('|')
+
+const toolbarBtn = (document, label) => [...document.querySelectorAll('.fuse-toolbar button')].find((b) => b.textContent === label)
 
 const grabArray = (name) => {
   const m = clientSrc.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\]`))
@@ -204,6 +230,180 @@ const cases = {
       const c = theme.colors
       assert.ok(ratio(c.neutralText, c.neutralBg) >= 4.5, `${name} 正文对比度不足 4.5`)
     }
+  },
+
+  // ↓ 以下 5 项为 v2.0.6 新增的回归防线 -------------------------------------
+
+  '子节点字段等价': async () => {
+    // 回归防线：v2.0.5 修这个问题的方式是在每个 case 里手抄三元，抄漏了
+    // nav / tabs / list / timeline，而当时的测试只覆盖被改过的那几个 case，所以一直绿。
+    // 现在遍历全部接受子节点的类型，两种写法必须产出等价 DOM。
+    const TXT = [{ type: 'text', content: 'A' }, { type: 'text', content: 'B' }]
+    const cases = [
+      { type: 'card', child: TXT }, { type: 'row', child: TXT }, { type: 'col', child: TXT },
+      { type: 'grid', child: TXT }, { type: 'section', child: TXT }, { type: 'form', child: TXT },
+      { type: 'page', child: TXT },
+      { type: 'nav', child: [{ text: 'A' }, { text: 'B' }] },
+      { type: 'list', child: [{ title: 'A' }, { title: 'B' }] },
+      { type: 'timeline', child: [{ title: 'A' }, { title: 'B' }] },
+      { type: 'tabs', child: [{ label: 'L', components: TXT }] },
+    ]
+    for (const c of cases) {
+      const mk = (key) => block(JSON.stringify({
+        type: 'dashboard', title: 'T', theme: 'default',
+        components: [{ type: c.type, [key]: c.child }],
+      }))
+      // 两个块放进同一份文档，共享一次 JSDOM 启动
+      const { document, close } = boot(mk('items') + mk('components'))
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-error').length, 0, `${c.type} 两种写法都不应报错`)
+      const bodies = document.querySelectorAll('.fuse-body')
+      assert.equal(bodies.length, 2, `${c.type}: 应渲染出两张卡片`)
+      const a = shape(bodies[0])
+      const b = shape(bodies[1])
+      assert.ok(a.length > 0, `${c.type}: items 写法渲染出了空壳`)
+      assert.equal(b, a, `${c.type}: components 与 items 的渲染结果必须完全一致`)
+      close()
+    }
+  },
+
+  '围栏识别边界': async () => {
+    const json = JSON.stringify({ type: 'dashboard', title: 'T', theme: 'default', components: [{ type: 'text', content: 'A' }] })
+    // 标了别的语言 → 必须不渲染。v2.0.5 的逻辑是「标注命中才 true，否则掉下去嗅探内容」，
+    // 于是 lang="json" 的配置示例、模型讲解用法贴的样例 JSON 全被误渲染成卡片。
+    for (const lang of ['json', 'javascript', 'yaml']) {
+      const { document, close } = boot(block(json, lang))
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-card').length, 0, `lang=${lang} 的代码块不应被渲染`)
+      close()
+    }
+    {
+      const { document, close } = boot(block(json, 'dsh-fuse'))
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-card').length, 1, 'dsh-fuse 围栏应渲染')
+      close()
+    }
+    {
+      const { document, close } = boot(`<pre>${json}</pre>`)
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-card').length, 1, '无任何语言标注时才允许内容嗅探')
+      close()
+    }
+  },
+
+  'theme 可选性': async () => {
+    const base = { type: 'dashboard', title: 'T', components: [{ type: 'text', content: 'A' }] }
+    {
+      // README 一直写 theme「否/缺省 default」，而校验器此前因缺 theme 整页拒绝
+      const { document, close } = boot(block(JSON.stringify(base)))
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-error').length, 0, '省略 theme 应正常渲染，不再整页拒绝')
+      assert.ok(document.querySelector('.fuse-toolbar-label')?.textContent?.includes('default'), '缺省应回落到 default')
+      close()
+    }
+    {
+      // 写了不认识的主题名 → 回落到 default 而不是整页报错：
+      // 呈现层字段不该让页面变成一张错误卡（顺带消掉了「是否报错取决于令牌加载时序」的不一致）
+      const { document, close } = boot(block(JSON.stringify({ ...base, theme: 'nope' })))
+      await wait(90)
+      assert.equal(document.querySelectorAll('.fuse-error').length, 0, '未知主题名应回落，不报错')
+      assert.ok(document.querySelector('.fuse-toolbar-label')?.textContent?.includes('default'), '未知主题名应回落到 default')
+      close()
+    }
+  },
+
+  '刷新重新拉取令牌': async () => {
+    const spec = { type: 'dashboard', title: 'T', theme: 'default', components: [{ type: 'text', content: 'A' }] }
+    const { document, close, fetchCount } = boot(block(JSON.stringify(spec)))
+    await wait(90)
+    const before = fetchCount()
+    assert.ok(before >= 1, '初次应拉取令牌')
+    toolbarBtn(document, '刷新').click()
+    await wait(120)
+    assert.ok(fetchCount() > before, `刷新必须真的重新请求令牌（${before} → ${fetchCount()}）`)
+    close()
+  },
+
+  '导出保真': async () => {
+    // 注意：根节点的 type:'form' 是「页面类型」而非表单组件，必须再包一个 form 组件才有 <form> 元素
+    const spec = {
+      type: 'dashboard', title: '报名表', theme: 'default',
+      components: [
+        { type: 'form', items: [
+          { type: 'input', label: '姓名' },
+          { type: 'checkbox', label: '同意条款' },
+        ] },
+      ],
+    }
+    const { document, close, exportedHtml } = boot(block(JSON.stringify(spec)))
+    await wait(90)
+    document.querySelector('.fuse-input').value = '张三'
+    document.querySelector('.fuse-check input').checked = true
+    toolbarBtn(document, '导出 HTML').click()
+    await wait(60)
+    const html = exportedHtml() ?? ''
+    assert.ok(html.length > 0, '应产出导出内容')
+    assert.ok(/value="张三"/.test(html), '导出应带上用户填写的输入值（value 是 property，不会自动进 innerHTML）')
+    assert.ok(/checked="checked"/.test(html), '导出应带上勾选状态')
+    assert.ok(/onsubmit="return false"/.test(html), '导出页无运行时 JS，表单必须自带提交拦截，否则回车会刷新丢数据')
+    assert.equal(/data-fuse-key/.test(html), false, '导出产物不应残留内部随机 key')
+    close()
+  },
+
+  '无障碍语义': async () => {
+    const spec = {
+      type: 'dashboard', title: 'T', theme: 'default', components: [
+        { type: 'tabs', items: [
+          { label: '第一页', content: [{ type: 'text', content: 'AAA' }] },
+          { label: '第二页', content: [{ type: 'text', content: 'BBB' }] },
+        ] },
+        { type: 'progress', label: '完成度', value: 68, max: 100 },
+        { type: 'input', label: '姓名' },
+        { type: 'chart', kind: 'bars', data: [{ label: '一', value: 12 }] },
+        { type: 'alert', tone: 'error', title: '出错了' },
+      ],
+    }
+    const { document, close } = boot(block(JSON.stringify(spec)))
+    await wait(90)
+
+    // tabs：用 button 承载（span 键盘不可达）+ ARIA 关系 + 面板需保留输入
+    const tabs = [...document.querySelectorAll('.fuse-tabs [role="tab"]')]
+    assert.equal(tabs.length, 2, 'tab 应带 role=tab')
+    assert.equal(tabs[0].tagName, 'BUTTON', 'tab 必须是 button，否则 CSS 里的 :focus-visible 永远命中不了')
+    assert.equal(tabs[0].getAttribute('aria-selected'), 'true')
+    const panelId = tabs[0].getAttribute('aria-controls')
+    assert.ok(document.getElementById(panelId), 'aria-controls 必须指向真实存在的面板')
+
+    tabs[1].click()
+    assert.equal(tabs[1].getAttribute('aria-selected'), 'true')
+    assert.equal(tabs[0].getAttribute('aria-selected'), 'false')
+    const panel = document.querySelector('[role="tabpanel"]')
+    assert.ok(panel?.textContent?.includes('BBB'), '面板内容应随标签切换')
+
+    // 面板缓存：切回去时用户在面板里填的内容不得丢失
+    const box = panel.querySelector('.fuse-input')
+    tabs[0].click()
+    tabs[1].click()
+    assert.equal(document.querySelector('[role="tabpanel"]')?.textContent?.includes('BBB'), true, '切回后面板应复用而非重建')
+
+    // 键盘：←/→ 应能切换标签
+    const bar = document.querySelector('.fuse-tabs')
+    const key = bar.ownerDocument.defaultView.KeyboardEvent
+    bar.dispatchEvent(new key('keydown', { key: 'ArrowLeft', bubbles: true }))
+    assert.equal(tabs[0].getAttribute('aria-selected'), 'true', '左方向键应切到前一个标签')
+
+    // progress / input / chart / alert 的语义
+    const bar2 = document.querySelector('[role="progressbar"]')
+    assert.equal(bar2.getAttribute('aria-valuenow'), '68')
+    assert.equal(bar2.getAttribute('aria-valuemax'), '100')
+    const input = document.querySelector('.fuse-input')
+    const label = document.querySelector('label.fuse-label')
+    assert.ok(input.id, 'input 必须有 id')
+    assert.equal(label.getAttribute('for'), input.id, 'label 的 for 必须指向控件 id，否则读屏无从关联')
+    assert.equal(document.querySelector('.fuse-chart')?.getAttribute('role'), 'img')
+    assert.ok(document.querySelector('.fuse-chart')?.getAttribute('aria-label')?.includes('柱状图'), '图表需有文字替代表述')
+    assert.equal(document.querySelector('.fuse-alert')?.getAttribute('role'), 'alert', 'error 语气应用 alert 而非 status')
+    close()
   },
 }
 

@@ -30,17 +30,26 @@ export const inject = ['systemPrompt']
 
 export { FUSE_PAGE_KINDS, FUSE_COMPONENT_TYPES, FUSE_MAX_NODES, FUSE_MAX_DEPTH, FUSE_SECTION_ORDER }
 
+let themeCache = null
+let themeRead = false
 function readTheme() {
+  // 令牌文件是只读资源：模块级构建提示词要读、apply 也要读，缓存一次避免重复 IO
+  if (themeRead) return themeCache
+  themeRead = true
   try {
-    return JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'theme.json'), 'utf8'))
+    themeCache = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'theme.json'), 'utf8'))
   } catch (err) {
     console.warn('[dsh-fuse] 读取 config/theme.json 失败，使用空令牌：', err instanceof Error ? err.message : String(err))
-    return null
+    themeCache = null
   }
+  return themeCache
 }
 
 /** dsh-fuse fence 语言规范（注入系统指令） */
-export const FUSE_SECTION_TEXT = buildFuseSectionText(summarizeTheme(readTheme()))
+export const FUSE_SECTION_TEXT = buildFuseSectionText(
+  summarizeTheme(readTheme()),
+  Object.keys(readTheme()?.themes ?? {}),
+)
 
 export function apply(ctx) {
   const themeConfig = readTheme()
@@ -57,19 +66,25 @@ export function apply(ctx) {
       kind: 'prefix',
       path: '/api/fuse',
       handler: async (req, res) => {
-        const url = new URL(req.url ?? '/', 'https://dsh.invalid')
-        const p = url.pathname.replace(/^\/api\/fuse/, '') || '/'
-        res.setHeader('content-type', 'application/json; charset=utf-8')
         const send = (code, body) => { res.statusCode = code; res.end(JSON.stringify(body)) }
-        if (req.method === 'GET' && p === '/config') {
-          return send(200, {
-            themes: themeConfig?.themes ?? {},
-            pageKinds: FUSE_PAGE_KINDS,
-            componentTypes: FUSE_COMPONENT_TYPES,
-            limits: { maxNodes: FUSE_MAX_NODES, maxDepth: FUSE_MAX_DEPTH },
-          })
+        try {
+          const url = new URL(req.url ?? '/', 'https://dsh.invalid')
+          const p = url.pathname.replace(/^\/api\/fuse/, '') || '/'
+          res.setHeader('content-type', 'application/json; charset=utf-8')
+          if (req.method === 'GET' && p === '/config') {
+            return send(200, {
+              themes: themeConfig?.themes ?? {},
+              pageKinds: FUSE_PAGE_KINDS,
+              componentTypes: FUSE_COMPONENT_TYPES,
+              limits: { maxNodes: FUSE_MAX_NODES, maxDepth: FUSE_MAX_DEPTH },
+            })
+          }
+          return send(404, { ok: false, error: 'not found' })
+        } catch (err) {
+          // 没有这层兜底的话，res.end 抛错会变成 unhandled rejection
+          console.warn('[dsh-fuse] /api/fuse 处理失败：', err instanceof Error ? err.message : String(err))
+          try { send(500, { ok: false, error: 'internal error' }) } catch { /* 连接已断开 */ }
         }
-        return send(404, { ok: false, error: 'not found' })
       },
     }), 'dsh-fuse: config API')
   })

@@ -2,7 +2,7 @@
 
 > 对话里写一段 JSON，就长出一页能点的界面；看完可以导成 HTML 带走。
 
-**v2.0.5** · MIT License · DSH 0.2.x（`>=0.2.0-rc.2 <0.3.0-0`，0.2.1-rc.3 桌面版实测）· Node `^22.19.0` 或 `>=24.0.0`
+**v2.0.6** · MIT License · DSH 0.2.x（`>=0.2.0-rc.2 <0.3.0-0`，0.2.1-rc.3 桌面版实测）· Node `^22.19.0` 或 `>=24.0.0`
 
 ---
 
@@ -61,8 +61,8 @@
 ## 安装
 
 ```bash
-npm pack                     # 产出 dsh-fuse-2.0.4.tgz
-dsh plugin --profile desktop add --offline file:<你的路径>/dsh-fuse-2.0.4.tgz
+npm pack                     # 产出 dsh-fuse-2.0.6.tgz
+dsh plugin --profile desktop add --offline file:<你的路径>/dsh-fuse-2.0.6.tgz
 ```
 
 - 改完 JS 必须**重打包 + 重装 + 重启 DSH**（ESM 模块缓存，热更不生效）。
@@ -72,12 +72,12 @@ dsh plugin --profile desktop add --offline file:<你的路径>/dsh-fuse-2.0.4.tg
 
 | 文件 | 职责 |
 |---|---|
-| `index.mjs`（73 行） | 宿主半区：注册系统指令段（order 106）+ `ctx.inject(['webServer'])` 懒注入 `GET /api/fuse/config` |
-| `spec.mjs`（61 行） | 页面类型 / 组件白名单 / 容器类型 / 预算 / 系统指令正文；`summarizeTheme()` 把令牌压成模型可见的紧凑文本 |
-| `lib/client.js`（967 行） | 浏览器半区：单文件零依赖渲染器（校验 → 解析 → 渲染 → 导出 → 宽度 → DOM 回传） |
-| `config/theme.json` | 设计令牌（brand + themes） |
+| `index.mjs`（93 行） | 宿主半区：注册系统指令段（order 106）+ `ctx.inject(['webServer'])` 懒注入 `GET /api/fuse/config` |
+| `spec.mjs`（73 行） | 页面类型 / 组件白名单 / 容器类型 / 预算 / 系统指令正文；`summarizeTheme()` 把令牌压成模型可见的紧凑文本 |
+| `lib/client.js`（1173 行） | 浏览器半区：单文件零依赖渲染器（校验 → 解析 → 渲染 → 导出 → 宽度 → DOM 回传） |
+| `config/theme.json` | 设计令牌（themes，三套：default / apple / dark） |
 | `locale/zh.json`、`locale/en.json` | 插件卡片文案（标题「页面渲染」） |
-| `tests/all.mjs` + `tests/run.mjs` | 7 项测试，含「词汇表同步」——浏览器端白名单与 `spec.mjs` 必须字面一致 |
+| `tests/all.mjs` + `tests/run.mjs` | 14 项测试，含「词汇表同步」——浏览器端白名单与 `spec.mjs` 必须字面一致 |
 | `cordis.patch.yml` | bundle 挂载声明 |
 
 ## 与 v1 的差异
@@ -89,7 +89,7 @@ v2 全部删掉：这些都是「微调 / 平台化」能力，不是渲染本�
 ## 测试
 
 ```bash
-npm test        # node tests/all.mjs（8 项）
+npm test        # node tests/all.mjs（14 项）
 ```
 
 CI（GitHub Actions）：Node 22.x / 24.x 矩阵 → `npm install` → `npm test` → `npm pack --dry-run`。
@@ -105,14 +105,17 @@ node tests/make-preview.mjs     # 用真实渲染器把示例规格渲成 docs/p
 
 图里的内容 = 示例规格的真实输出，改了渲染器就重跑一遍，不要手绘。
 
+> CI 现在会在 `npm test` 之后校验 `docs/preview.html` 是否与 `tests/make-preview.mjs` 的当前输出一致（见 `.github/workflows/ci.yml` 的「预览图过期检查」步骤）；若渲染器改了却忘了重跑预览脚本，CI 会失败。
+
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| **v2.0.5** | 2026-10-25 | **修渲染 bug**：容器（`row`/`grid`/`col`/`card`/`section`/`form`）过去只认 `items`，用 `components` 写的嵌套会被校验放行、渲染成空壳；现在两者都认。补「嵌套组件」回归测试（8 项）+ README 预览图 |
-| v2.0.4 | 2026-10-25 | 插件卡片文案改走 `locale`（标题「页面渲染」），`description` 改成一句英文；功能无变更 |
-| v2.0.0 – v2.0.3 | 2026-10-25 | 收敛为单一职责：删走查器 / 撤销 / 设置页 / 预检工具，重写渲染器与测试，新增 `spec.mjs`、`tests/all.mjs` |
-| v1.x | 2026-09 及更早 | 旧版（含走查器与设置页），已冻结不再维护 |
+| **v2.0.6** | 2026-10-27 | 修复 + 完善（详见 [CHANGELOG.md](./CHANGELOG.md)）：`nav`/`tabs`/`list`/`timeline` 子节点 `components`≡`items` 真正等价；围栏识别收紧；刷新按钮真正重拉；`theme` 放宽；导出保真；无障碍补齐；测试 8 → 14 项 |
+| **v2.0.5** | 2026-10-25 | **修渲染 bug**：7 个容器 `items`/`components` 等价（基线 8 项测试）+ README 预览图 |
+| v2.0.4 | 2026-10-25 | 插件卡片文案改走 `locale`，功能无变更 |
+| v2.0.0 – v2.0.3 | 2026-10-25 | 收敛为单一职责，重写渲染器与测试 |
+| v1.x | 2026-09 及更早 | 旧版，已冻结 |
 
 ## 边界
 

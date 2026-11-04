@@ -30,7 +30,7 @@ export const FUSE_MAX_DEPTH = 8
 export const FUSE_SECTION_ORDER = 106
 
 /** 系统指令正文：只讲围栏语法 + 设计原则 + 令牌摘要（代码规范/走查两段已在 v2.0 移除） */
-export function buildFuseSectionText(themeSummary) {
+export function buildFuseSectionText(themeSummary, themeNames = []) {
   return `## Fuse — 页面级 UI 渲染（dsh-fuse 围栏）
 
 需要页面级 UI（登录/注册/仪表盘/设置/表格/落地页/个人卡片/弹窗/表单）时，在回答正文用 \`dsh-fuse\` 围栏输出 JSON 规格，渲染器会渲染成真实页面。页面类产物一律用它；对话内小卡片用 dsh-ui。
@@ -41,8 +41,9 @@ ${FUSE_PAGE_KINDS.join(' / ')}
 组件词汇（白名单，只允许这些 type）：
 ${FUSE_COMPONENT_TYPES.join(' ')}
 
-结构：{"type":"dashboard","title":"页面标题","theme":"default","components":[...]}
-- theme 必填（默认 default）；组件总数（含嵌套）≤ ${FUSE_MAX_NODES}、嵌套深度 ≤ ${FUSE_MAX_DEPTH}，超限整份拒绝渲染
+结构：{"type":"dashboard","title":"页面标题","theme":"${themeNames[0] ?? 'default'}","components":[...]}
+- theme 可选，缺省 ${themeNames[0] ?? 'default'}（可选：${themeNames.length ? themeNames.join(' / ') : 'default'}）；组件总数（含嵌套）≤ ${FUSE_MAX_NODES}、嵌套深度 ≤ ${FUSE_MAX_DEPTH}，超限整份拒绝渲染
+- 容器的子节点写 components 或 items 都可以，两者完全等价（list/timeline/nav/tabs 同样如此）
 - 交互组件（button/input/select/textarea/checkbox/radio）带 "action":"名字" 时点击以 [fuse-action] 回传；不带 action 的按钮渲染为禁用态
 - 根节点可选 "context":{"product":"网页|APP|…","audience":"…","task":"…"}；
   可选 "actions":[{"action":"name","label":"按钮文字","tone":"primary|ghost"}] 渲染为底部主操作条（每页一个主操作）

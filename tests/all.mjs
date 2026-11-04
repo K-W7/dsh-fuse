@@ -3,7 +3,12 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const SELF = fileURLToPath(new URL('./run.mjs', import.meta.url))
-const CASES = ['词汇表同步', '宿主集成', '合法渲染', '嵌套组件', '流式骨架屏', '流式结束升级错误卡', '非法规格错误卡', '令牌对比度']
+const CASES = [
+  '词汇表同步', '宿主集成', '合法渲染', '嵌套组件', '流式骨架屏',
+  '流式结束升级错误卡', '非法规格错误卡', '令牌对比度',
+  // v2.0.6 新增回归防线
+  '子节点字段等价', '围栏识别边界', 'theme 可选性', '刷新重新拉取令牌', '导出保真', '无障碍语义',
+]
 
 let failed = 0
 for (const name of CASES) {

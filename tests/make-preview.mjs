@@ -2,6 +2,7 @@
 // 用法：node tests/make-preview.mjs    → 产出 docs/preview.html
 //      再用无头浏览器截图成 docs/preview.png（命令见 README「预览图」一节）
 import fs from 'node:fs'
+import path from 'node:path'
 import { JSDOM } from 'jsdom'
 
 const clientSrc = fs.readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
@@ -58,7 +59,12 @@ body{display:flex;justify-content:center;padding:24px 24px 32px}
   }, 200))
 }
 
-const out = new URL('../docs/preview.html', import.meta.url)
-fs.mkdirSync(new URL('../docs/', import.meta.url), { recursive: true })
-fs.writeFileSync(out, await renderToHtml(), 'utf8')
-console.log('wrote', out.pathname)
+// 只有被直接执行时才落盘。原先顶层 await 直接写文件，导致这个模块被 import 就有副作用
+// （跑一遍测试就在工作区留下一个 preview.html）。
+const invokedDirectly = process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
+if (invokedDirectly) {
+  const out = new URL('../docs/preview.html', import.meta.url)
+  fs.mkdirSync(new URL('../docs/', import.meta.url), { recursive: true })
+  fs.writeFileSync(out, await renderToHtml(), 'utf8')
+  console.log('wrote', out.pathname)
+}

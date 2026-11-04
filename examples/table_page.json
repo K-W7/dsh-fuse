@@ -1,0 +1,29 @@
+{
+  "type": "table_page",
+  "title": "成员列表",
+  "theme": "apple",
+  "components": [
+    {
+      "type": "table",
+      "caption": "核心成员",
+      "columns": ["姓名", "角色", "状态"],
+      "items": [
+        ["小林", "渲染", "在线"],
+        ["阿凯", "设计", "离开"],
+        ["Mira", "产品", "在线"]
+      ]
+    },
+    {
+      "type": "progress",
+      "label": "资料完成度",
+      "value": 68,
+      "max": 100
+    },
+    {
+      "type": "alert",
+      "tone": "info",
+      "title": "提示",
+      "content": "表格数据仅作演示。"
+    }
+  ]
+}

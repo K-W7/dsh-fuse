@@ -1,0 +1,17 @@
+{
+  "type": "dashboard",
+  "title": "报名表",
+  "theme": "default",
+  "components": [
+    {
+      "type": "form",
+      "items": [
+        { "type": "input", "label": "姓名", "placeholder": "请输入你的名字" },
+        { "type": "select", "label": "意向方向", "options": ["前端", "后端", "设计"], "selected": 0 },
+        { "type": "textarea", "label": "自我介绍", "placeholder": "说点什么" },
+        { "type": "checkbox", "label": "我已阅读并同意条款" },
+        { "type": "button", "label": "提交", "tone": "primary" }
+      ]
+    }
+  ]
+}

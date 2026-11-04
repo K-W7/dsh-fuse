@@ -1,0 +1,34 @@
+{
+  "type": "dashboard",
+  "title": "项目总览",
+  "theme": "default",
+  "components": [
+    { "type": "header", "title": "项目总览", "subtitle": "本周关键指标" },
+    {
+      "type": "row",
+      "items": [
+        { "type": "stat", "value": "1,284", "label": "今日活跃" },
+        { "type": "stat", "value": "92%", "label": "渲染成功率" },
+        { "type": "stat", "value": "14", "label": "回归测试" }
+      ]
+    },
+    {
+      "type": "card",
+      "title": "趋势",
+      "components": [
+        { "type": "chart", "kind": "bars", "data": [
+          { "label": "周一", "value": 120 },
+          { "label": "周二", "value": 180 },
+          { "label": "周三", "value": 150 }
+        ] }
+      ]
+    },
+    {
+      "type": "tabs",
+      "items": [
+        { "label": "概览", "content": [ { "type": "text", "content": "这里是概览面板。", "size": "body" } ] },
+        { "label": "明细", "content": [ { "type": "text", "content": "这里是明细面板。", "size": "body" } ] }
+      ]
+    }
+  ]
+}
