@@ -46,8 +46,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KLRSL/dsh-fuse.git"
+    "url": "git+https://github.com/K-W7/dsh-fuse.git"
   },
-  "homepage": "https://github.com/KLRSL/dsh-fuse#readme",
+  "homepage": "https://github.com/K-W7/dsh-fuse#readme",
   "keywords": ["dsh", "deepseek-harness", "dsh-plugin", "ui", "fence", "renderer"]
 }
