@@ -2,7 +2,7 @@
 
 > 对话里写一段 JSON，就长出一页能点的界面；看完可以导成 HTML 带走。
 
-**v2.0.6** · MIT License · DSH 0.2.x（`>=0.2.0-rc.2 <0.3.0-0`，0.2.1-rc.3 桌面版实测）· Node `^22.19.0` 或 `>=24.0.0`
+**v2.0.7** · MIT License · DSH 0.2.x（`>=0.2.0-rc.2 <0.3.0-0`，0.2.1-rc.3 桌面版实测）· Node `^22.19.0` 或 `>=24.0.0`
 
 ---
 
@@ -61,8 +61,12 @@
 ## 安装
 
 ```bash
-npm pack                     # 产出 dsh-fuse-2.0.6.tgz
-dsh plugin --profile desktop add --offline file:<你的路径>/dsh-fuse-2.0.6.tgz
+# 按包名安装（推荐；npm 上有）
+dsh plugin add dsh-fuse
+
+# 本地打包（开发用）
+npm pack                     # 产出 dsh-fuse-2.0.7.tgz
+dsh plugin --profile desktop add --offline file:<你的路径>/dsh-fuse-2.0.7.tgz
 ```
 
 - 改完 JS 必须**重打包 + 重装 + 重启 DSH**（ESM 模块缓存，热更不生效）。
@@ -105,12 +109,13 @@ node tests/make-preview.mjs     # 用真实渲染器把示例规格渲成 docs/p
 
 图里的内容 = 示例规格的真实输出，改了渲染器就重跑一遍，不要手绘。
 
-> CI 现在会在 `npm test` 之后校验 `docs/preview.html` 是否与 `tests/make-preview.mjs` 的当前输出一致（见 `.github/workflows/ci.yml` 的「预览图过期检查」步骤）；若渲染器改了却忘了重跑预览脚本，CI 会失败。
+> 预览图要**手工重跑**：改了渲染器就再执行一次 `node tests/make-preview.mjs` 并重新截图。CI 只跑单元测试与 `npm pack --dry-run`，不校验预览图是否过期。
 
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| **v2.0.7** | 2026-11-23 | 文档：安装改为 npm 优先（`dsh plugin add dsh-fuse`），本地 tgz 降为开发路径；删掉「CI 校验预览图」的过期说法（CI 实际只跑测试与打包预演）。功能无变更 |
 | **v2.0.6** | 2026-10-27 | 修复 + 完善（详见 [CHANGELOG.md](./CHANGELOG.md)）：`nav`/`tabs`/`list`/`timeline` 子节点 `components`≡`items` 真正等价；围栏识别收紧；刷新按钮真正重拉；`theme` 放宽；导出保真；无障碍补齐；测试 8 → 14 项 |
 | **v2.0.5** | 2026-10-25 | **修渲染 bug**：7 个容器 `items`/`components` 等价（基线 8 项测试）+ README 预览图 |
 | v2.0.4 | 2026-10-25 | 插件卡片文案改走 `locale`，功能无变更 |

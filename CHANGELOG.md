@@ -2,6 +2,15 @@
 
 所有重要变更记录于此。格式参考 Keep a Changelog，版本号遵循语义化版本（本插件用 `主.次.修订`，功能修复算修订号递增）。
 
+## [v2.0.7] - 2026-11-23
+
+### 文档
+
+- 安装改为 **npm 优先**：`dsh plugin add dsh-fuse`；`npm pack` + `--offline file:` 降为本地开发路径。
+- 删掉「CI 会校验 `docs/preview.html` 是否过期」的旧说法：CI 实际只跑单元测试与 `npm pack --dry-run`，预览图仍需手工重跑。
+
+功能无变更。
+
 ## [v2.0.6] - 2026-10-27
 
 ### 修复（Functional fixes）
